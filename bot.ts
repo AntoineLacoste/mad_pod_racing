@@ -75,16 +75,20 @@ class CheckPointManager {
 const checkPointManager = new CheckPointManager();
 let firstLoopCalculationDone: boolean = false;
 let currentCheckpointIndex = 0;
-let lastCheckpointX: number = 0; // x position of the next check point
-let lastCheckpointY: number = 0; // y position of the next check point
+let currentLap = 1;
+let lastPos: CheckPoint = {x: 0, y: 0};
+let lastCheckpoint: CheckPoint = {x: 0, y: 0};
 let hasBoosted: boolean = false;
 let firstLoop: boolean = true;
+let maxThrust: number = 100;
+let checkPointRadius = 600;
 
 // game loop
 while (true) {
     var inputs: string[] = readline().split(' ');
     const x: number = parseInt(inputs[0]);
     const y: number = parseInt(inputs[1]);
+    const currentPos = new CheckPoint(x,y);
     const nextCheckpointX: number = parseInt(inputs[2]); // x position of the next check point
     const nextCheckpointY: number = parseInt(inputs[3]); // y position of the next check point
     const nextCheckpointDist: number = parseInt(inputs[4]); // distance to the next checkpoint
@@ -92,21 +96,27 @@ while (true) {
     var inputs: string[] = readline().split(' ');
     const opponentX: number = parseInt(inputs[0]);
     const opponentY: number = parseInt(inputs[1]);
-    let currentCheckPoint = new CheckPoint(nextCheckpointX, nextCheckpointX);
+    let nextCheckPoint = new CheckPoint(nextCheckpointX, nextCheckpointX);
+
+    if(lastCheckpoint.x == 0){
+        lastPos = currentPos;
+    }
 
     console.error("currentCheckPoint : ");
-    console.error(currentCheckPoint.toString());
+    console.error(nextCheckPoint.toString());
+    console.error("hasBoosted : ");
+    console.error(hasBoosted);
 
-    if (lastCheckpointX == 0 && lastCheckpointY == 0) {
-        lastCheckpointX = nextCheckpointX;
-        lastCheckpointY = nextCheckpointY;
+    if (lastCheckpoint.x == 0 && lastCheckpoint.y == 0) {
+        lastCheckpoint.x = nextCheckPoint.x;
+        lastCheckpoint.y = nextCheckPoint.y;
     }
 
     if (firstLoop) {
-        checkPointManager.newCheckpoint(currentCheckPoint);
+        checkPointManager.newCheckpoint(nextCheckPoint);
     }
 
-    if (!firstLoopCalculationDone && checkPointManager.compareCheckpoint(checkPointManager.checkpoints[0], currentCheckPoint) && checkPointManager.checkpoints.length > 2) {
+    if (!firstLoopCalculationDone && checkPointManager.compareCheckpoint(checkPointManager.checkpoints[0], nextCheckPoint) && checkPointManager.checkpoints.length > 2) {
         firstLoop = false;
         console.error("first loop done");
         checkPointManager.calculateDistances();
@@ -123,7 +133,7 @@ while (true) {
     console.error(checkPointManager.longerDistance);
     console.error("checkPointManager.longerDistanceIndex : ");
     console.error(checkPointManager.longerDistanceIndex);
-    let thrust: number = 0;
+    let thrust: number = maxThrust;
     // Write an action using console.log()
     // To debug: console.error('Debug messages...');
 
@@ -131,37 +141,53 @@ while (true) {
         thrust = 0;
     }
     else {
-        thrust = 100;
+        thrust = thrust * (Math.min(Math.max(1 - nextCheckpointAngle/90, 0), 1));
     }
 
-    if (nextCheckpointDist < 3000) {
-        thrust = Math.round(thrust / 1.3);
+    thrust = thrust * (Math.min(Math.max(nextCheckpointDist - 2*checkPointRadius, 0.2), 1))
+
+
+    let target: CheckPoint = nextCheckPoint;
+    let offset = -3 * checkPointManager.distanceBetweenCheckPoints(lastPos, currentPos);
+
+    target.x = target.x - offset;
+    target.y = target.y - offset;
+
+    /*if (nextCheckpointDist < 3000) {
+        thrust = thrust / 1.3;
     }
 
     if (nextCheckpointDist < 1500) {
-        thrust = Math.round(thrust / 1.8);
-    }
+        thrust = thrust / 1.8;
+    }*/
+
 
     // You have to output the target position
     // followed by the power (0 <= thrust <= 100)
     // i.e.: "x y thrust"
-    if (firstLoopCalculationDone && checkPointManager.longerDistanceIndex == currentCheckpointIndex - 1 && nextCheckpointAngle < 2 && nextCheckpointAngle > -2) {
+    let thresholdAngle = 2;
+    if(currentLap > 2){
+        thresholdAngle = 10;
+    }
+
+    if (firstLoopCalculationDone && checkPointManager.longerDistanceIndex == currentCheckpointIndex - 1 && nextCheckpointAngle < thresholdAngle && nextCheckpointAngle > -thresholdAngle) {
 
         console.error("----BOOSTING : -----");
-        console.log(nextCheckpointX + ' ' + nextCheckpointY + ' BOOST');
+        console.log(Math.round(target.x) + ' ' + Math.round(target.y) + ' BOOST');
         hasBoosted = true;
     }
     else {
-        console.log(nextCheckpointX + ' ' + nextCheckpointY + ' ' + thrust);
+        console.log(Math.round(target.x) + ' ' + Math.round(target.y) + ' ' + Math.round(thrust));
     }
 
-    if (lastCheckpointX != nextCheckpointX && lastCheckpointY != nextCheckpointY) {
+    if (lastCheckpoint.x != nextCheckPoint.x && lastCheckpoint.y != nextCheckPoint.y) {
         currentCheckpointIndex = currentCheckpointIndex + 1;
         if (currentCheckpointIndex == checkPointManager.checkpoints.length) {
             currentCheckpointIndex = 0;
+            currentLap ++;
         }
     }
 
-    lastCheckpointX = nextCheckpointX;
-    lastCheckpointY = nextCheckpointY;
+    lastCheckpoint.x = nextCheckPoint.x;
+    lastCheckpoint.y = nextCheckPoint.y;
 }
